@@ -1,0 +1,37 @@
+
+services:
+  api:
+    image: python:3.12-slim
+    working_dir: /app
+    volumes:
+      - ./:/app
+    environment:
+      - RATE_LIMIT_PER_MINUTE=90
+      - MAX_QUERY_LENGTH=800
+      - DEFAULT_MAX_SOURCES=5
+      - CORS_ORIGINS=http://127.0.0.1:4175,http://localhost:4175
+    command: sh -c "pip install -r requirements.txt && uvicorn api.main:app --host 0.0.0.0 --port 8002"
+    ports:
+      - "8002:8002"
+
+  frontend:
+    image: node:20-alpine
+    working_dir: /app/frontend
+    volumes:
+      - ./frontend:/app/frontend
+    environment:
+      - VITE_API_URL=http://127.0.0.1:8002
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0 --port 4175"
+    ports:
+      - "4175:4175"
+    depends_on:
+      - api
+
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9092:9090"
+    depends_on:
+      - api

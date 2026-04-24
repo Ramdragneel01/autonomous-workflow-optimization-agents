@@ -15,12 +15,13 @@
 
 1. `APP_NAME`
 2. `APP_VERSION`
-3. `RATE_LIMIT_PER_MINUTE`
-4. `MAX_QUERY_LENGTH`
-5. `DEFAULT_MAX_SOURCES`
-6. `CORS_ORIGINS`
-7. `TAVILY_API_KEY`
-8. `VITE_API_URL`
+3. `WORKFLOW_API_KEY` (optional; enables API key auth on protected endpoints)
+4. `RATE_LIMIT_PER_MINUTE`
+5. `MAX_QUERY_LENGTH`
+6. `DEFAULT_MAX_SOURCES`
+7. `CORS_ORIGINS`
+8. `TAVILY_API_KEY`
+9. `VITE_API_URL`
 
 ## Production Considerations
 
@@ -29,6 +30,11 @@
 3. Configure alerting on 4xx/5xx spikes and request latency.
 4. Use managed secret store for API keys.
 5. Validate SSE timeout and client reconnect policies under load.
+
+## CI and Release
+
+1. CI workflow: `.github/workflows/ci.yml`
+2. Release workflow: `.github/workflows/release.yml`
 
 ## Rollback
 

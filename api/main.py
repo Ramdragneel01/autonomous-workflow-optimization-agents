@@ -11,9 +11,10 @@ import os
 import re
 from threading import Lock
 from time import perf_counter
+from typing import Annotated
 from uuid import uuid4
 
-from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse
 from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_latest
@@ -33,6 +34,7 @@ class Settings:
     rate_limit_per_minute: int
     max_query_length: int
     default_max_sources: int
+    api_key: str
 
 
 class InMemoryRateLimiter:
@@ -58,6 +60,12 @@ class InMemoryRateLimiter:
                 return False
             queue.append(now)
         return True
+
+    def clear(self) -> None:
+        """Reset in-memory limiter state for deterministic tests."""
+
+        with self._lock:
+            self._store.clear()
 
 
 class HealthResponse(BaseModel):
@@ -95,13 +103,25 @@ def _load_settings() -> Settings:
 
     origins = os.getenv("CORS_ORIGINS", "http://127.0.0.1:4175,http://localhost:4175")
     return Settings(
-        app_name=os.getenv("APP_NAME", "agentic-research-assistant"),
+        app_name=os.getenv("APP_NAME", "autonomous-workflow-optimization-agents"),
         app_version=os.getenv("APP_VERSION", "0.2.0"),
         cors_origins=[origin.strip() for origin in origins.split(",") if origin.strip()],
         rate_limit_per_minute=int(os.getenv("RATE_LIMIT_PER_MINUTE", "90")),
         max_query_length=int(os.getenv("MAX_QUERY_LENGTH", "800")),
         default_max_sources=int(os.getenv("DEFAULT_MAX_SOURCES", "5")),
+        api_key=os.getenv("WORKFLOW_API_KEY", "").strip(),
     )
+
+
+def _require_api_key(
+    x_api_key: Annotated[str | None, Header(alias="X-API-Key")] = None,
+) -> None:
+    """Enforce optional API key auth for protected workflow endpoints."""
+
+    if not settings.api_key:
+        return
+    if x_api_key != settings.api_key:
+        raise HTTPException(status_code=401, detail="Unauthorized")
 
 
 def _guard_query(query: str, max_query_length: int) -> str:
@@ -129,6 +149,7 @@ def _request_key(request: Request) -> str:
 settings = _load_settings()
 compiled_graph = build_graph()
 limiter = InMemoryRateLimiter(window_seconds=60)
+AuthDep = Annotated[None, Depends(_require_api_key)]
 
 REQUEST_COUNTER = Counter(
     "research_api_requests_total",
@@ -204,7 +225,7 @@ def health() -> HealthResponse:
 
 
 @app.post("/research/run", response_model=ResearchAnswer)
-def research_run(request: Request, payload: ResearchRequest) -> ResearchAnswer:
+def research_run(request: Request, payload: ResearchRequest, _: AuthDep = None) -> ResearchAnswer:
     """Run research workflow synchronously for automation and integration tests."""
 
     if not limiter.allow(_request_key(request), settings.rate_limit_per_minute):
@@ -228,6 +249,7 @@ def research_run(request: Request, payload: ResearchRequest) -> ResearchAnswer:
 @app.get("/research")
 def research(
     request: Request,
+    _: AuthDep = None,
     query: str = Query(..., min_length=3, max_length=800),
     max_sources: int = Query(default=settings.default_max_sources, ge=1, le=8),
 ) -> EventSourceResponse:

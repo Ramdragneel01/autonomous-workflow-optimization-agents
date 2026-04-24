@@ -10,9 +10,11 @@ Coverage focus:
 1. Health endpoint contract.
 2. Synchronous research response shape.
 3. SSE response characteristics.
-4. Searcher fallback behavior.
-5. Summarizer section structure.
-6. Critic confidence/verdict behavior.
+4. API key enforcement when protected endpoints are configured.
+5. Rate-limit behavior for synchronous workflow execution.
+6. Searcher fallback behavior.
+7. Summarizer section structure.
+8. Critic confidence/verdict behavior.
 
 ## Frontend Validation
 

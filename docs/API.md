@@ -3,6 +3,13 @@
 
 Base URL (local): `http://127.0.0.1:8002`
 
+## Authentication
+
+When `WORKFLOW_API_KEY` is configured, the following endpoints require header `X-API-Key`:
+
+1. `GET /research` (SSE)
+2. `POST /research/run`
+
 ## GET /health
 
 Returns runtime diagnostics.
@@ -55,3 +62,7 @@ Prometheus metrics endpoint.
 Error payload shape:
 1. `detail`
 2. `request_id`
+
+Additional protected-endpoint errors:
+1. `401 Unauthorized` when API key is required and missing/invalid.
+2. `429 Too Many Requests` when per-client rate limit is exceeded.

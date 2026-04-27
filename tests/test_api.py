@@ -116,3 +116,51 @@ def test_research_run_rate_limit_returns_429(monkeypatch):
         json={"query": "Compare modern API gateway patterns", "max_sources": 4},
     )
     assert second.status_code == 429
+
+
+def test_metrics_requires_api_key_when_configured(monkeypatch):
+    """Metrics endpoint should enforce optional API key when configured."""
+
+    _override_settings(monkeypatch, metrics_api_key="metrics-secret")
+
+    unauthorized = client.get("/metrics")
+    assert unauthorized.status_code == 401
+
+    authorized = client.get("/metrics", headers={"X-Metrics-Key": "metrics-secret"})
+    assert authorized.status_code == 200
+
+
+def test_rate_limit_uses_forwarded_for_when_enabled(monkeypatch):
+    """Rate limit keys should use X-Forwarded-For when trust setting is enabled."""
+
+    _override_settings(monkeypatch, rate_limit_per_minute=1, trust_proxy_headers=True)
+
+    first = client.post(
+        "/research/run",
+        headers={"X-Forwarded-For": "203.0.113.10"},
+        json={"query": "Compare modern API gateway patterns", "max_sources": 4},
+    )
+    assert first.status_code == 200
+
+    different_client = client.post(
+        "/research/run",
+        headers={"X-Forwarded-For": "198.51.100.2"},
+        json={"query": "Compare modern API gateway patterns", "max_sources": 4},
+    )
+    assert different_client.status_code == 200
+
+    same_client_again = client.post(
+        "/research/run",
+        headers={"X-Forwarded-For": "203.0.113.10"},
+        json={"query": "Compare modern API gateway patterns", "max_sources": 4},
+    )
+    assert same_client_again.status_code == 429
+
+
+def test_health_includes_hardening_headers():
+    """Health endpoint responses should include baseline hardening headers."""
+
+    response = client.get("/health")
+    assert response.status_code == 200
+    assert response.headers["x-content-type-options"] == "nosniff"
+    assert "content-security-policy" in response.headers

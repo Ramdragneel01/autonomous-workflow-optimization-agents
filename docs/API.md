@@ -10,6 +10,8 @@ When `WORKFLOW_API_KEY` is configured, the following endpoints require header `X
 1. `GET /research` (SSE)
 2. `POST /research/run`
 
+When `METRICS_API_KEY` is configured, `GET /metrics` requires header `X-Metrics-Key`.
+
 ## GET /health
 
 Returns runtime diagnostics.
@@ -56,6 +58,16 @@ SSE events:
 ## GET /metrics
 
 Prometheus metrics endpoint.
+
+## Response Hardening Headers
+
+The API includes baseline security headers on responses:
+
+1. `X-Content-Type-Options: nosniff`
+2. `X-Frame-Options: DENY`
+3. `Content-Security-Policy`
+4. `Referrer-Policy`
+5. `Permissions-Policy`
 
 ## Error Contract
 

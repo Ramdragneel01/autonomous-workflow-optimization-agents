@@ -21,14 +21,14 @@ services:
       - ./frontend:/app/frontend
     environment:
       - VITE_API_URL=http://127.0.0.1:8002
-    command: sh -c "npm install && npm run dev -- --host 0.0.0.0 --port 4175"
+    command: sh -c "npm ci && npm run dev -- --host 0.0.0.0 --port 4175"
     ports:
       - "4175:4175"
     depends_on:
       - api
 
   prometheus:
-    image: prom/prometheus:latest
+    image: prom/prometheus:v2.55.1
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
     ports:

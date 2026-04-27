@@ -54,7 +54,8 @@ jobs:
         run: python -m pip check
 
       - name: Test
-        run: pytest -q --maxfail=1 --cov=api --cov=agents --cov=tools --cov-report=term-missing:skip-covered --cov-fail-under=50
+        run: pytest -q --maxfail=1 --cov=api --cov=agents --cov=tools
+          --cov-report=term-missing:skip-covered --cov-fail-under=50
 
       - name: Backend dependency audit
         run: |

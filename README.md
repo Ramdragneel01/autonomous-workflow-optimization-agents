@@ -68,6 +68,57 @@ cd frontend && npm run build
 1. API: http://127.0.0.1:8002
 2. Frontend: http://127.0.0.1:4175
 
+## Production Deployment
+
+1. Copy `.env.example` to `.env` and set secrets (`WORKFLOW_API_KEY`, `METRICS_API_KEY`, `TAVILY_API_KEY`).
+2. Set deployment-facing values:
+	- `PUBLIC_API_URL` to your public API URL for frontend builds.
+	- `CORS_ORIGINS` to your trusted frontend domains only.
+	- `ALLOWED_HOSTS` to your API hostnames.
+	- `TRUST_PROXY_HEADERS=true` only when API runs behind a trusted reverse proxy.
+3. Build and run the production stack:
+
+```bash
+docker compose -f docker-compose.prod.yml up --build -d
+```
+
+4. Verify health and metrics:
+	- `GET /health`
+	- `GET /metrics` with `X-Metrics-Key` when configured.
+5. Roll back quickly by redeploying the previous image tag and repeating health checks.
+
+## Kubernetes Deployment
+
+1. Review [k8s/README.md](k8s/README.md) for full Kubernetes setup.
+2. Build and push API + frontend images to your registry.
+3. Create Kubernetes secret `workflow-api-secrets` with real key values.
+4. Apply manifests:
+
+```bash
+kubectl apply -k k8s
+```
+
+5. Verify rollout:
+
+```bash
+kubectl -n workflow-agents-prod rollout status deploy/workflow-api
+kubectl -n workflow-agents-prod rollout status deploy/workflow-frontend
+```
+
+## Production Smoke Test
+
+Run one command after deployment to validate health, metrics auth, and SSE:
+
+```powershell
+./tools/smoke_test.ps1 -ApiBaseUrl "https://api.example.com" -FrontendUrl "https://app.example.com" -WorkflowApiKey "replace_me" -MetricsKey "replace_me"
+```
+
+Equivalent Python command:
+
+```bash
+python tools/production_smoke_test.py --api-base-url https://api.example.com --frontend-url https://app.example.com --workflow-api-key replace_me --metrics-key replace_me
+```
+
 ## Production Documents
 
 1. `docs/ARCHITECTURE.md`

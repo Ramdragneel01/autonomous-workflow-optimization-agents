@@ -11,25 +11,111 @@
    - `POST /research/run`
    - `GET /research` SSE from UI
 
+## Production Deployment (Docker)
+
+1. Copy `.env.example` to `.env`.
+2. Configure required secrets:
+   - `TAVILY_API_KEY`
+   - `WORKFLOW_API_KEY` (recommended)
+   - `METRICS_API_KEY` (recommended)
+3. Configure ingress-facing values:
+   - `PUBLIC_API_URL` for frontend static build-time API base URL.
+   - `CORS_ORIGINS` for trusted frontend origins only.
+   - `ALLOWED_HOSTS` for accepted API host headers.
+   - `TRUST_PROXY_HEADERS=true` only when traffic comes through a trusted reverse proxy.
+4. Build and run:
+
+```bash
+docker compose -f docker-compose.prod.yml up --build -d
+```
+
+5. Validate deployment:
+   - `GET /health`
+   - `GET /metrics` with `X-Metrics-Key` when configured
+   - frontend stream call to `/research`
+
+6. Stop deployment:
+
+```bash
+docker compose -f docker-compose.prod.yml down
+```
+
+## Production Deployment (Kubernetes)
+
+1. Build and push API and frontend images to your container registry.
+2. Update registry/image tags in [k8s/kustomization.yaml](k8s/kustomization.yaml).
+3. Update hostnames in:
+    - [k8s/api-configmap.yaml](k8s/api-configmap.yaml)
+    - [k8s/ingress.yaml](k8s/ingress.yaml)
+4. Create namespace and API secret:
+
+```bash
+kubectl create namespace workflow-agents-prod --dry-run=client -o yaml | kubectl apply -f -
+kubectl create secret generic workflow-api-secrets \
+   --namespace workflow-agents-prod \
+   --from-literal=TAVILY_API_KEY='replace_me' \
+   --from-literal=WORKFLOW_API_KEY='replace_me' \
+   --from-literal=METRICS_API_KEY='replace_me' \
+   --dry-run=client -o yaml | kubectl apply -f -
+```
+
+5. Apply manifests:
+
+```bash
+kubectl apply -k k8s
+```
+
+6. Verify rollout:
+
+```bash
+kubectl -n workflow-agents-prod rollout status deploy/workflow-api
+kubectl -n workflow-agents-prod rollout status deploy/workflow-frontend
+kubectl -n workflow-agents-prod get ingress workflow-ingress
+```
+
+7. Ensure TLS secret `workflow-ingress-tls` exists for ingress hosts.
+
+## Post-Deploy Smoke Test
+
+PowerShell one-command check:
+
+```powershell
+./tools/smoke_test.ps1 -ApiBaseUrl "https://api.example.com" -FrontendUrl "https://app.example.com" -WorkflowApiKey "replace_me" -MetricsKey "replace_me"
+```
+
+Python alternative:
+
+```bash
+python tools/production_smoke_test.py --api-base-url https://api.example.com --frontend-url https://app.example.com --workflow-api-key replace_me --metrics-key replace_me
+```
+
 ## Environment Variables
 
 1. `APP_NAME`
 2. `APP_VERSION`
 3. `WORKFLOW_API_KEY` (optional; enables API key auth on protected endpoints)
-4. `RATE_LIMIT_PER_MINUTE`
-5. `MAX_QUERY_LENGTH`
-6. `DEFAULT_MAX_SOURCES`
-7. `CORS_ORIGINS`
-8. `TAVILY_API_KEY`
-9. `VITE_API_URL`
+4. `METRICS_API_KEY` (optional; enables API key auth on `/metrics`)
+5. `RATE_LIMIT_PER_MINUTE`
+6. `MAX_QUERY_LENGTH`
+7. `DEFAULT_MAX_SOURCES`
+8. `CORS_ORIGINS`
+9. `ALLOWED_HOSTS`
+10. `TRUST_PROXY_HEADERS`
+11. `UVICORN_WORKERS`
+12. `TAVILY_API_KEY`
+13. `VITE_API_URL`
+14. `PUBLIC_API_URL`
 
 ## Production Considerations
 
 1. Place API behind HTTPS ingress.
 2. Restrict CORS origins to trusted frontend domains.
-3. Configure alerting on 4xx/5xx spikes and request latency.
-4. Use managed secret store for API keys.
-5. Validate SSE timeout and client reconnect policies under load.
+3. Restrict host headers with `ALLOWED_HOSTS`.
+4. Keep `/metrics` protected with `METRICS_API_KEY` for non-public deployments.
+5. Configure alerting on 4xx/5xx spikes and request latency.
+6. Use managed secret store for API keys.
+7. Validate SSE timeout and client reconnect policies under load.
+8. Keep ingress buffering disabled for `/research` SSE streams.
 
 ## CI and Release
 

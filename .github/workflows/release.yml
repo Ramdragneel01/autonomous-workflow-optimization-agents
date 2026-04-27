@@ -64,7 +64,8 @@ jobs:
         run: npm audit --omit=dev --audit-level=high
 
       - name: Package frontend artifact
-        run: tar -czf autonomous-workflow-optimization-agents-frontend-dist-${{ github.ref_name }}.tgz -C frontend dist
+        run: tar -czf autonomous-workflow-optimization-agents-frontend-dist-${{
+          github.ref_name }}.tgz -C frontend dist
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2

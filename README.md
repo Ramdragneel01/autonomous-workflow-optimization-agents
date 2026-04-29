@@ -24,6 +24,10 @@ LinkedIn mapping: Autonomous Workflow Optimization with Intelligent Agents (Acce
 5. `tests/` - backend API and agent unit/integration coverage.
 6. `docs/` - architecture, API, deployment, testing, and prompt governance.
 
+## Quick Start
+
+Run backend and frontend locally using the commands below.
+
 ## Run Backend
 
 ```bash
@@ -53,7 +57,9 @@ npm run dev -- --host 0.0.0.0 --port 4175
 3. `POST /research/run` (sync execution, protected when API key is configured)
 4. `GET /metrics`
 
-## Validation Commands
+## Testing
+
+Run validation checks from repository root:
 
 ```bash
 # backend tests
@@ -128,3 +134,15 @@ python tools/production_smoke_test.py --api-base-url https://api.example.com --f
 5. `docs/PROMPT_GUIDE.md`
 6. `.claude/CLAUDE.md`
 7. `.github/workflows/release.yml`
+
+## Limitations
+
+1. Current orchestration uses a fixed three-agent execution pattern.
+2. End-to-end research quality depends on external provider availability and quota limits.
+3. Default local runtime is single-node and requires explicit scaling configuration for distributed workloads.
+
+## Roadmap
+
+1. Add adaptive retrieval budget controls based on latency and confidence signals.
+2. Add stricter tool boundary policies with per-tool deny and allow controls.
+3. Expand release evidence with deterministic benchmark trend artifacts.

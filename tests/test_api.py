@@ -1,5 +1,5 @@
 
-"""Integration tests for agentic-research-assistant API endpoints."""
+"""Integration tests for autonomous-workflow-optimization-agents API endpoints."""
 
 from __future__ import annotations
 
@@ -12,6 +12,28 @@ from api import main as main_module
 from api.main import app
 
 client = TestClient(app)
+
+
+def _assert_error_contract(
+    response,
+    expected_status: int,
+    expected_code: str,
+    expected_message: str | None = None,
+    expect_details: bool = False,
+) -> None:
+    """Validate normalized API error contract fields."""
+
+    assert response.status_code == expected_status
+    payload = response.json()
+    assert isinstance(payload.get("error"), dict)
+    assert payload["error"]["code"] == expected_code
+    assert isinstance(payload["error"]["message"], str)
+    if expected_message is not None:
+        assert payload["error"]["message"] == expected_message
+    assert isinstance(payload["error"]["request_id"], str)
+    assert payload["error"]["request_id"]
+    if expect_details:
+        assert "details" in payload["error"]
 
 
 def _override_settings(monkeypatch, **changes):
@@ -42,6 +64,22 @@ def test_health_endpoint_reports_runtime_limits():
     assert payload["status"] == "ok"
     assert payload["rate_limit_per_minute"] > 0
     assert payload["max_query_length"] >= 100
+
+
+def test_probe_alias_endpoints_return_runtime_state():
+    """Readiness and probe aliases should be available for deployment checks."""
+
+    ready = client.get("/ready")
+    assert ready.status_code == 200
+    assert ready.json()["status"] == "ready"
+
+    health_alias = client.get("/healthz")
+    assert health_alias.status_code == 200
+    assert health_alias.json()["status"] == "ok"
+
+    ready_alias = client.get("/readyz")
+    assert ready_alias.status_code == 200
+    assert ready_alias.json()["status"] == "ready"
 
 
 def test_research_run_returns_answer_contract():
@@ -80,7 +118,12 @@ def test_research_run_requires_api_key_when_configured(monkeypatch):
         "/research/run",
         json={"query": "Compare modern API gateway patterns", "max_sources": 4},
     )
-    assert unauthorized.status_code == 401
+    _assert_error_contract(
+        unauthorized,
+        expected_status=401,
+        expected_code="unauthorized",
+        expected_message="api_key_invalid",
+    )
 
     authorized = client.post(
         "/research/run",
@@ -99,6 +142,74 @@ def test_health_is_public_when_api_key_enabled(monkeypatch):
     assert response.status_code == 200
     assert response.json()["status"] == "ok"
 
+    ready_response = client.get("/ready")
+    assert ready_response.status_code == 200
+    assert ready_response.json()["status"] == "ready"
+
+
+def test_phase1_auth_required_contract(monkeypatch):
+    """Protected endpoints should require API key with normalized unauthorized errors."""
+
+    _override_settings(monkeypatch, api_key="phase1-secret")
+
+    unauthorized = client.post(
+        "/research/run",
+        json={"query": "Compare modern API gateway patterns", "max_sources": 4},
+    )
+    _assert_error_contract(
+        unauthorized,
+        expected_status=401,
+        expected_code="unauthorized",
+        expected_message="api_key_invalid",
+    )
+
+    invalid_key = client.post(
+        "/research/run",
+        headers={"X-API-Key": "wrong"},
+        json={"query": "Compare modern API gateway patterns", "max_sources": 4},
+    )
+    _assert_error_contract(
+        invalid_key,
+        expected_status=401,
+        expected_code="unauthorized",
+        expected_message="api_key_invalid",
+    )
+
+    authorized = client.post(
+        "/research/run",
+        headers={"X-API-Key": "phase1-secret"},
+        json={"query": "Compare modern API gateway patterns", "max_sources": 4},
+    )
+    assert authorized.status_code == 200
+
+
+def test_phase1_error_contract_response():
+    """Missing body should return normalized validation error payload."""
+
+    response = client.post("/research/run")
+    _assert_error_contract(
+        response,
+        expected_status=422,
+        expected_code="validation_error",
+        expected_message="request_validation_failed",
+        expect_details=True,
+    )
+
+
+def test_error_responses_include_request_and_security_headers(monkeypatch):
+    """Error responses should carry request tracing and baseline security headers."""
+
+    _override_settings(monkeypatch, api_key="header-secret")
+    response = client.post(
+        "/research/run",
+        json={"query": "Compare modern API gateway patterns", "max_sources": 4},
+    )
+
+    assert response.status_code == 401
+    assert response.headers.get("X-Request-ID")
+    assert response.headers.get("X-Content-Type-Options") == "nosniff"
+    assert response.headers.get("X-Frame-Options") == "DENY"
+
 
 def test_research_run_rate_limit_returns_429(monkeypatch):
     """Synchronous research endpoint should return 429 after limit is reached."""
@@ -115,7 +226,13 @@ def test_research_run_rate_limit_returns_429(monkeypatch):
         "/research/run",
         json={"query": "Compare modern API gateway patterns", "max_sources": 4},
     )
-    assert second.status_code == 429
+    _assert_error_contract(
+        second,
+        expected_status=429,
+        expected_code="rate_limited",
+        expected_message="rate_limited",
+    )
+    assert second.headers.get("Retry-After") == "60"
 
 
 def test_metrics_requires_api_key_when_configured(monkeypatch):
@@ -124,7 +241,12 @@ def test_metrics_requires_api_key_when_configured(monkeypatch):
     _override_settings(monkeypatch, metrics_api_key="metrics-secret")
 
     unauthorized = client.get("/metrics")
-    assert unauthorized.status_code == 401
+    _assert_error_contract(
+        unauthorized,
+        expected_status=401,
+        expected_code="unauthorized",
+        expected_message="api_key_invalid",
+    )
 
     authorized = client.get("/metrics", headers={"X-Metrics-Key": "metrics-secret"})
     assert authorized.status_code == 200

@@ -8,6 +8,9 @@
 3. Start frontend: `cd frontend && npm run dev -- --host 0.0.0.0 --port 4175`.
 4. Validate:
    - `GET /health`
+   - `GET /ready`
+   - `GET /healthz`
+   - `GET /readyz`
    - `POST /research/run`
    - `GET /research` SSE from UI
 
@@ -31,6 +34,7 @@ docker compose -f docker-compose.prod.yml up --build -d
 
 5. Validate deployment:
    - `GET /health`
+   - `GET /ready`
    - `GET /metrics` with `X-Metrics-Key` when configured
    - frontend stream call to `/research`
 
@@ -126,4 +130,5 @@ python tools/production_smoke_test.py --api-base-url https://api.example.com --f
 
 1. Deploy previous tagged image/version.
 2. Verify `/health` and `/research/run` smoke checks.
-3. Confirm frontend can consume streamed trace events.
+3. Verify `/ready` and probe aliases (`/healthz`, `/readyz`).
+4. Confirm frontend can consume streamed trace events.

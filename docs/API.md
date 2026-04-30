@@ -12,6 +12,17 @@ When `WORKFLOW_API_KEY` is configured, the following endpoints require header `X
 
 When `METRICS_API_KEY` is configured, `GET /metrics` requires header `X-Metrics-Key`.
 
+## Health and Readiness
+
+1. `GET /health`
+2. `GET /ready`
+3. `GET /healthz` (alias for `/health`)
+4. `GET /readyz` (alias for `/ready`)
+
+Readiness behavior:
+
+1. Returns `200` with `status=ready` when runtime metadata is available.
+
 ## GET /health
 
 Returns runtime diagnostics.
@@ -71,10 +82,28 @@ The API includes baseline security headers on responses:
 
 ## Error Contract
 
-Error payload shape:
-1. `detail`
-2. `request_id`
+All API errors return a normalized payload:
+
+```json
+{
+	"error": {
+		"code": "string",
+		"message": "string",
+		"request_id": "string",
+		"details": []
+	}
+}
+```
+
+Common error codes:
+
+1. `bad_request`
+2. `unauthorized`
+3. `validation_error`
+4. `rate_limited`
+5. `internal_error`
 
 Additional protected-endpoint errors:
-1. `401 Unauthorized` when API key is required and missing/invalid.
-2. `429 Too Many Requests` when per-client rate limit is exceeded.
+1. `401 Unauthorized` when API key is required and missing/invalid (`api_key_invalid`).
+2. `429 Too Many Requests` when per-client rate limit is exceeded (`rate_limited`).
+3. `429` responses include `Retry-After: 60`.
